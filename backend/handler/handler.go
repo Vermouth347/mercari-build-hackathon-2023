@@ -10,10 +10,10 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/Vermouth347/mecari-build-hackathon-2023/backend/db"
+	"github.com/Vermouth347/mecari-build-hackathon-2023/backend/domain"
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/labstack/echo/v4"
-	"github.com/mercari-build/mecari-build-hackathon-2023/backend/db"
-	"github.com/mercari-build/mecari-build-hackathon-2023/backend/domain"
 	"github.com/pkg/errors"
 	"golang.org/x/crypto/bcrypt"
 )
@@ -69,6 +69,13 @@ type getItemResponse struct {
 type getCategoriesResponse struct {
 	ID   int64  `json:"id"`
 	Name string `json:"name"`
+}
+
+type searchItemsResponse struct {
+	ID           int32  `json:"id"`
+	Name         string `json:"name"`
+	Price        int64  `json:"price"`
+	CategoryName string `json:"category_name"`
 }
 
 type sellRequest struct {
@@ -405,6 +412,30 @@ func (h *Handler) GetImage(c echo.Context) error {
 	}
 
 	return c.Blob(http.StatusOK, "image/jpeg", data)
+}
+
+func (h *Handler) SearchItem(c echo.Context) error {
+	ctx := c.Request().Context()
+
+	name := c.QueryParam("name")
+	items, err := h.ItemRepo.SearchItem(ctx, name)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, err)
+	}
+
+	var res []searchItemsResponse
+	categories, err := h.ItemRepo.GetCategories(ctx)
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, err)
+	}
+	for _, item := range items {
+		for _, category := range categories {
+			if category.ID == item.CategoryID {
+				res = append(res, searchItemsResponse{ID: item.ID, Name: item.Name, Price: item.Price, CategoryName: category.Name})
+			}
+		}
+	}
+	return c.JSON(http.StatusOK, res)
 }
 
 func (h *Handler) AddBalance(c echo.Context) error {

@@ -4,7 +4,7 @@ import (
 	"context"
 	"database/sql"
 
-	"github.com/mercari-build/mecari-build-hackathon-2023/backend/domain"
+	"github.com/Vermouth347/mecari-build-hackathon-2023/backend/domain"
 )
 
 type UserRepository interface {
@@ -55,6 +55,7 @@ type ItemRepository interface {
 	GetItemsByUserID(ctx context.Context, userID int64) ([]domain.Item, error)
 	GetCategory(ctx context.Context, id int64) (domain.Category, error)
 	GetCategories(ctx context.Context) ([]domain.Category, error)
+	SearchItem(ctx context.Context, name string) ([]domain.Item, error)
 	UpdateItemStatus(ctx context.Context, id int32, status domain.ItemStatus) error
 }
 
@@ -83,6 +84,27 @@ func (r *ItemDBRepository) GetItem(ctx context.Context, id int32) (domain.Item, 
 
 	var item domain.Item
 	return item, row.Scan(&item.ID, &item.Name, &item.Price, &item.Description, &item.CategoryID, &item.UserID, &item.Image, &item.Status, &item.CreatedAt, &item.UpdatedAt)
+}
+
+func (r *ItemDBRepository) SearchItem(ctx context.Context, name string) ([]domain.Item, error) {
+	name = "%" + name + "%"
+	rows, err := r.QueryContext(ctx, "SELECT * FROM items WHERE name LIKE ?", name)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var itemlist []domain.Item
+	for rows.Next() {
+		var item domain.Item
+		if err := rows.Scan(&item.ID, &item.Name, &item.Price, &item.Description, &item.CategoryID, &item.UserID, &item.Image, &item.Status, &item.CreatedAt, &item.UpdatedAt); err != nil {
+			return nil, err
+		}
+		itemlist = append(itemlist, item)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return itemlist, nil
 }
 
 func (r *ItemDBRepository) GetItemImage(ctx context.Context, id int32) ([]byte, error) {
